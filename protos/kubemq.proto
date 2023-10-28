@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package kubemq;
+
+import "google/protobuf/empty.proto";
+
+service kubemq {
+
+  // Ping fetches information about the KubeMQ server.
+  rpc Ping(google.protobuf.Empty) returns(KubemqServerInfo) { }
+
+  // SendQueueMessage sends a message to a queue.
+  rpc SendQueueMessage(QueueMessage) returns(SendQueueMessageResult) { }
+
+  // ReceiveQueueMessages pulls or peeks a message from a queue. The messages are removed from the
+  // queue if they are pulled.
+  rpc ReceiveQueueMessages(ReceiveQueueMessagesRequest) returns(ReceiveQueueMessagesResponse) { }
+
+  // StreamQueueMessage allows you to stream large amounts of data from producers to consumers. When
+  // a message is consumed in the stream, it becomes invisible to other consumers for some time. The
+  // invisibility period can be extended by the client via an RPC call. Messages should be
+  // acknowledged after they are processed.
+  rpc StreamQueueMessage(stream StreamQueueMessagesRequest) returns(stream StreamQueueMessagesResponse) { }
+
+}
+
+message KubemqServerInfo {
+  string Host= 1;
+  string Version= 2;
+  int64 ServerStartTime= 3;
+  int64 ServerUpTimeSeconds =4;
+}
+
+message QueueMessage {
+  string ClientID= 1;
+  string Channel= 2;
+  string MessageID= 3;
+  string Metadata= 4;
+  bytes Body= 5;
+  map<string,string> Tags= 6;
+  QueueMessageAttributes Attributes= 7;
+  QueueMessagePolicy Policy= 8;
+
+  string Topic= 9;
+  int32 Partition= 10;
+  string PartitionKey= 11;
+}
+
+message QueueMessageAttributes {
+  int64 Timestamp= 1;
+
+  // A sequential number to identify the order of the message.
+  uint64 Sequence= 2;
+
+  // The MD5 hash of the message body.
+  string MD5OfBody= 3;
+
+  // The number of times the message has been received.
+  int32 ReceiveCount= 4;
+
+  // Indicates if the message has been rerouted to another queue.
+  bool ReRouted= 5;
+  // The name of the queue the message was rerouted from.
+  string ReRoutedFromQueue= 6;
+
+  int64 ExpirationAt= 7;
+  int64 DelayedTo= 8;
+}
+
+message QueueMessagePolicy {
+  // The number of seconds after which the message will expire and be removed from the queue. This
+  // allows you to implement time-to-live (TTL) for queue messages.
+  // If not set, the message will reside indefinitely in the queue.
+  int32 ExpirationSeconds =1;
+
+  // The number of seconds to delay delivering the message to consumers. This allows you to
+  // implement scheduled messages.
+  int32 DelaySeconds =2;
+
+  // The maximum number of times the message will be delivered to consumers. After that, the
+  // message will be moved to the dead letter queue (if specified).
+  int32 MaxReceiveCount =3;
+
+  // The name of the dead letter queue where the message will be moved if it expires or exceeds the
+  // max receive count.
+  string MaxReceiveQueue =4;
+}
+
+message SendQueueMessageResult {
+  string MessageID= 1;
+  int64 SentAt= 2;
+  int64 ExpirationAt= 3;
+  int64 DelayedTo= 4;
+  bool IsError= 5;
+  string Error= 6;
+  string RefChannel= 7;
+  string RefTopic= 8;
+  int32 RefPartition= 9;
+  string RefHash= 10;
+}
+
+message ReceiveQueueMessagesRequest {
+  string RequestID= 1;
+  string ClientID= 2;
+  string Channel= 3;
+  int32 MaxNumberOfMessages= 4;
+  int32 WaitTimeSeconds= 5;
+  bool IsPeak= 6;
+}
+
+message ReceiveQueueMessagesResponse {
+  string RequestID= 1;
+  repeated QueueMessage Messages= 2;
+  int32 MessagesReceived= 3;
+  int32 MessagesExpired= 4;
+  bool IsPeak= 5;
+  bool IsError= 6;
+  string Error= 7;
+}
+
+enum StreamRequestType {
+  StreamRequestTypeUnknown= 0;
+  ReceiveMessage= 1;
+  AckMessage= 2;
+  RejectMessage= 3;
+  ModifyVisibility= 4;
+  ResendMessage= 5;
+  SendModifiedMessage= 6;
+}
+
+message StreamQueueMessagesRequest {
+  string RequestID= 1;
+  string ClientID= 2;
+  StreamRequestType StreamRequestTypeData= 3;
+  string Channel= 4;
+  int32 VisibilitySeconds= 5;
+  int32 WaitTimeSeconds= 6;
+  uint64 RefSequence= 7;
+  QueueMessage ModifiedMessage= 8;
+}
+
+message StreamQueueMessagesResponse {
+  string RequestID= 1;
+  StreamRequestType StreamRequestTypeData= 2;
+  QueueMessage Message= 3;
+  bool IsError= 4;
+  string Error= 5;
+}
